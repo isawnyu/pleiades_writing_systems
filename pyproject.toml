@@ -32,7 +32,8 @@ dependencies = [
   "romanize",
   "romanize3",
   "textnorm",
-  "webiquette @ https://github.com/isawnyu/webiquette/archive/refs/heads/main.zip"
+  "webiquette @ https://github.com/isawnyu/webiquette/archive/refs/heads/main.zip",
+  "yuconv"
 ]
 [project.urls]
 # "Homepage" = "https://github.com/pypa/sampleproject"

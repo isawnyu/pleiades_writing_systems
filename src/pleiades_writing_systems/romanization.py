@@ -19,6 +19,8 @@ import slugify as python_slugify
 from datetime import timedelta
 import unicodedata
 from webiquette.webi import Webi
+from yuconv import YuConverter
+from yuconv import TransliterationMode as YuConvTransliterationMode
 
 
 class RomanizationUnsupportedLanguageError(Exception):
@@ -66,10 +68,12 @@ class Romanizer:
             "python-slugify": self._romanize_with_python_slugify,  # "python-slugify" by Val Neekman: https://pypi.org/project/python-slugify/
             "romanize-schizas": self._romanize_with_romanize_schizas,  # "romanize" by George Schizas: https://pypi.org/project/Romanize/
             "romanize-manninen": self._romanize_with_romanize_manninen,  # "romanize3" by Marko Manninen: https://pypi.org/project/romanize3/
+            "yuconv": self._romanize_with_yuconv,  # yuconv by Darko Milošević for Serbian Cyrillic: https://pypi.org/project/yuconv/
         }
         self._script_detector = ScriptDetector()
         d = {"ή": "ḗ"}
         self._manninen_substitutions = str.maketrans(d)
+        self._yuconverter = YuConverter()
 
     @property
     def engines(self):
@@ -371,6 +375,50 @@ class Romanizer:
         else:
             raise RomanizationUnsupportedLanguageError(
                 f"Unsupported language/script for romanize-manninen (romanize3) engine: {langtags}"
+            )
+        return []
+
+    @lru_cache(maxsize=5000)
+    def _romanize_with_yuconv(
+        self, text: str, lang_subtag: str, script_subtag: str
+    ) -> list[RomanString]:
+        """
+        Romanize the input text using the yuconv engine for Serbian Cyrillic.
+
+        Args:
+            text (str): The input text in its original script.
+            lang_subtag (str): IANA language subtag for reporting.
+            script_subtag (str): IANA script subtag for reporting.
+        Returns:
+            list[RomanString]: A list containing one or more romanized forms of the input "text" string.
+        Notes:
+            The yuconv engine is used to produce one and only one romanized form using its
+            internal algorithm.
+        """
+        langtags = langcodes.standardize_tag(f"{lang_subtag}-{script_subtag}")
+        supported_lang_subtags = {
+            "sr",  # Serbian
+        }
+        supported_script_subtags = {
+            "Cyrl",
+        }
+        if (
+            lang_subtag in supported_lang_subtags
+            and script_subtag in supported_script_subtags
+        ):
+            converter = self._yuconverter
+            mode = YuConvTransliterationMode().CyrillicToLatin
+            return [
+                RomanString(
+                    original_text=text,
+                    original_lang_tag=langtags,
+                    romanized_form=converter.transliterate_text(text, mode),
+                    engine="yuconv",
+                )
+            ]
+        else:
+            raise RomanizationUnsupportedLanguageError(
+                f"Unsupported language/script for yuconv engine: {langtags}"
             )
         return []
 

@@ -49,6 +49,7 @@ class TestRomanizer:
             "python-slugify",
             "romanize-schizas",
             "romanize-manninen",
+            "yuconv",
         ] == engines
 
     def test_romanize_multi_greek(self):
@@ -144,4 +145,25 @@ class TestRomanizer:
                     assert romanization.romanized.lower() in {
                         r.lower() for r in result_rom
                     }
+                assert romanization.engine in engines
+
+    def test_romanize_serbian_cyrillic_yuconv(self):
+        candidates = [
+            (
+                "Београд",
+                "sr-Cyrl",
+                {"Beograd"},
+                {"yuconv", "python-slugify"},
+            ),
+        ]
+        for i, blob in enumerate(candidates):
+            text, langtag, result_rom, engines = blob
+            romanizations = self.romanizer.romanize(text, langtag)
+            assert isinstance(romanizations, list)
+            for j, romanization in enumerate(romanizations):
+                logger.debug(f"testing romanization result {i}:{j}")
+                assert isinstance(romanization, RomanString)
+                assert romanization.original == text
+                assert romanization.original_lang_tag == langtag
+                assert romanization.romanized in result_rom
                 assert romanization.engine in engines
