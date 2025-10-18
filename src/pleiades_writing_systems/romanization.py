@@ -17,7 +17,17 @@ class Romanizer:
 
     def __init__(self):
         # Initialize any necessary data structures or mappings here
-        pass
+        self._engines = {
+            "python-slugify": None,  # Placeholder for actual romanization engine
+        }
+
+    @property
+    def engines(self):
+        """
+        Return the available romanization engines.
+        """
+        return list(self._engines.keys())
+        
 
     def romanize(self, text: str) -> str:
         """
