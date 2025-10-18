@@ -44,9 +44,14 @@ class TestRomanizer:
     def test_engines_property(self):
         engines = self.romanizer.engines
         assert isinstance(engines, list)
-        assert ["python-slugify", "romanize-schizas", "romanize-manninen"] == engines
+        assert [
+            "iuliia",
+            "python-slugify",
+            "romanize-schizas",
+            "romanize-manninen",
+        ] == engines
 
-    def test_romanize(self):
+    def test_romanize_multi_greek(self):
         candidates = [
             (
                 "Αθήνα",
@@ -59,7 +64,7 @@ class TestRomanizer:
                 "Αθήνα",
                 "grc",
                 "grc-Grek",
-                {"Athena", "Athéna"},
+                {"Athena", "Athḗna"},
                 {"python-slugify", "romanize-manninen"},
             ),
             (
@@ -73,7 +78,7 @@ class TestRomanizer:
                 "Αθήνα",
                 "grc",
                 "grc-Grek",
-                {"Athena", "Athéna"},
+                {"Athena", "Athḗna"},
                 {"python-slugify", "romanize-manninen"},
             ),
             ("Athens", "en", "en", {"Athens"}, {"python-slugify"}),
@@ -106,3 +111,37 @@ class TestRomanizer:
             romanizations = self.romanizer.romanize(text, langtag)
             assert isinstance(romanizations, list)
             assert len(romanizations) == 0
+
+    def test_romanize_russian(self):
+        candidates = [
+            (
+                "Каменная могила",
+                "ru",
+                {
+                    "Kamennaya Mogila",
+                    "Kamennai͡a Mogila",
+                    "Kamennaia mogila",
+                    "Kamennaâ mogila",
+                    "Kamennaia moguila",
+                    "Kamennaya mogyla",
+                    "Kamennaja mogila",
+                },
+                {"iuliia", "python-slugify"},
+            ),
+        ]
+        for i, blob in enumerate(candidates):
+            text, langtag, result_rom, engines = blob
+            romanizations = self.romanizer.romanize(text, langtag)
+            assert isinstance(romanizations, list)
+            for j, romanization in enumerate(romanizations):
+                logger.debug(f"testing romanization result {i}:{j}")
+                assert isinstance(romanization, RomanString)
+                assert romanization.original == text
+                assert romanization.original_lang_tag == langtag
+                try:
+                    assert romanization.romanized in result_rom
+                except AssertionError:
+                    assert romanization.romanized.lower() in {
+                        r.lower() for r in result_rom
+                    }
+                assert romanization.engine in engines

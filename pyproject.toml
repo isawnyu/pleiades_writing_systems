@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
   "airtight",
+  "iuliia",
   "langcodes[data]",
   "pytest",
   "python-slugify",

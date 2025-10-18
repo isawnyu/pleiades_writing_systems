@@ -9,6 +9,7 @@
 romanization: create romanized (Latin script) versions of strings in other scripts
 """
 from functools import lru_cache
+import iuliia
 import langcodes
 import logging
 from pprint import pformat
@@ -61,12 +62,13 @@ class Romanizer:
     def __init__(self):
         # Initialize any necessary data structures or mappings here
         self._engines = {
+            "iuliia": self._romanize_with_iuliia,  # "iuliia" by Anton Zhiyanov: https://pypi.org/project/iuliia/
             "python-slugify": self._romanize_with_python_slugify,  # "python-slugify" by Val Neekman: https://pypi.org/project/python-slugify/
             "romanize-schizas": self._romanize_with_romanize_schizas,  # "romanize" by George Schizas: https://pypi.org/project/Romanize/
             "romanize-manninen": self._romanize_with_romanize_manninen,  # "romanize3" by Marko Manninen: https://pypi.org/project/romanize3/
         }
         self._script_detector = ScriptDetector()
-        d = {"ή": "é"}
+        d = {"ή": "ḗ"}
         self._manninen_substitutions = str.maketrans(d)
 
     @property
@@ -166,6 +168,72 @@ class Romanizer:
                 else:
                     romanizations.extend(romanized_forms)
         return romanizations
+
+    @lru_cache(maxsize=5000)
+    def _romanize_with_iuliia(
+        self, text: str, lang_subtag: str, script_subtag: str
+    ) -> list[RomanString]:
+        """
+        Romanize the input text using the iuliia engine.
+
+        Args:
+            text (str): The input text in its original script.
+            lang_subtag (str): IANA language subtag for reporting.
+            script_subtag (str): IANA script subtag for reporting.
+        Returns:
+            list[RomanString]: A list containing one or more romanized forms of the input "text" string.
+        Notes:
+            The iuliia engine is used to produce one and only one romanized form using its
+            internal algorithm. No information about language or script is passed to the engine.
+        """
+        langtags = langcodes.standardize_tag(f"{lang_subtag}-{script_subtag}")
+        supported_lang_subtags = {
+            "ab",  # Abkhazian
+            "be",  # Belarussian
+            "bg",  # Bulgarian
+            "kk",  # Kazakh
+            "mk",  # Macedonian
+            "ru",  # Russian
+            "uk",  # Ukrainian
+            "uz",  # Uzbek
+            "uzn",  # Northern Uzbek
+            "uzs",  # Southern Uzbek
+        }
+        supported_script_subtags = {"Cyrl"}
+        if not (
+            lang_subtag in supported_lang_subtags
+            and script_subtag in supported_script_subtags
+        ):
+            raise RomanizationUnsupportedLanguageError(
+                f"Unsupported language/script for iuliia engine: {langtags}"
+            )
+        if lang_subtag in {"uz", "uzn", "uzs"}:
+            schema = iuliia.schemas.get("uz")
+            return [
+                RomanString(
+                    original_text=text,
+                    original_lang_tag=langtags,
+                    romanized_form=schema.translate(text),
+                    engine="iuliia",
+                )
+            ]
+        else:
+            romanized_forms = set()
+            for name, schema in iuliia.schemas.items():
+                if name == "uz":
+                    continue
+                if lang_subtag != "ru" and name == "mosmetro":
+                    continue
+                romanized_forms.add(schema.translate(text))
+            return [
+                RomanString(
+                    original_text=text,
+                    original_lang_tag=langtags,
+                    romanized_form=rf,
+                    engine="iuliia",
+                )
+                for rf in romanized_forms
+            ]
 
     @lru_cache(maxsize=5000)
     def _romanize_with_python_slugify(
