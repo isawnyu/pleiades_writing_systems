@@ -11,7 +11,7 @@ Test the romanization module
 import inspect
 import logging
 from pathlib import Path
-from pleiades_writing_systems.romanization import Romanizer
+from pleiades_writing_systems.romanization import Romanizer, RomanString
 from pprint import pformat
 
 logger = logging.getLogger("tests")
@@ -45,3 +45,14 @@ class TestRomanizer:
         engines = self.romanizer.engines
         assert isinstance(engines, list)
         assert ["python-slugify"] == engines
+
+    def test_romanize_und(self):
+        romanizations = self.romanizer.romanize("Αθήνα")
+        assert isinstance(romanizations, list)
+        assert len(romanizations) == 1
+        romanization = romanizations[0]
+        assert isinstance(romanization, RomanString)
+        assert romanization.original == "Αθήνα"
+        assert romanization.original_lang_tag == "und"
+        assert romanization.romanized == "Athena"
+        assert romanization.engine == "python-slugify"
