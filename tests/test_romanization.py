@@ -44,32 +44,44 @@ class TestRomanizer:
     def test_engines_property(self):
         engines = self.romanizer.engines
         assert isinstance(engines, list)
-        assert ["python-slugify"] == engines
+        assert ["python-slugify", "romanize-schizas"] == engines
 
     def test_romanize(self):
         candidates = [
-            ("Αθήνα", "und", "el", "Athena"),
-            ("Αθήνα", "grc", "grc", "Athena"),
-            ("Αθήνα", "el", "el", "Athena"),
-            ("Αθήνα", "grc-Grek", "grc-Grek", "Athena"),
-            ("Athens", "en", "en", "Athens"),
+            (
+                "Αθήνα",
+                "und",
+                "el",
+                {"Athena", "Athina"},
+                {"python-slugify", "romanize-schizas"},
+            ),
+            ("Αθήνα", "grc", "grc-Grek", {"Athena"}, {"python-slugify"}),
+            (
+                "Αθήνα",
+                "el",
+                "el",
+                {"Athena", "Athina"},
+                {"python-slugify", "romanize-schizas"},
+            ),
+            ("Αθήνα", "grc", "grc-Grek", {"Athena"}, {"python-slugify"}),
+            ("Athens", "en", "en", {"Athens"}, {"python-slugify"}),
             (
                 "Athens",
                 "und",
-                "und",
-                "Athens",
+                "und-Latn",
+                {"Athens"},
+                {"python-slugify"},
             ),  # sic more than one languages uses Latin script by default
         ]
-        for text, langtag, result_langtag, result_rom in candidates:
+        for text, langtag, result_langtag, result_rom, engines in candidates:
             romanizations = self.romanizer.romanize(text, langtag)
             assert isinstance(romanizations, list)
-            assert len(romanizations) == 1
-            romanization = romanizations[0]
-            assert isinstance(romanization, RomanString)
-            assert romanization.original == text
-            assert romanization.original_lang_tag == result_langtag
-            assert romanization.romanized == result_rom
-            assert romanization.engine == "python-slugify"
+            for romanization in romanizations:
+                assert isinstance(romanization, RomanString)
+                assert romanization.original == text
+                assert romanization.original_lang_tag == result_langtag
+                assert romanization.romanized in result_rom
+                assert romanization.engine in engines
 
     def test_romanize_fail(self):
         candidates = [

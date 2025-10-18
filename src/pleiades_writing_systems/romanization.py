@@ -12,11 +12,20 @@ from functools import lru_cache
 import langcodes
 import logging
 from pprint import pformat
-from romanize import romanize as romanize_engine
+from romanize import romanize as romanize_schizas
 import slugify as python_slugify
 from datetime import timedelta
 import unicodedata
 from webiquette.webi import Webi
+
+
+class RomanizationUnsupportedLanguageError(Exception):
+    """
+    Exception raised when attempting to romanize text in an unsupported language/script.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class RomanString:
@@ -36,6 +45,12 @@ class RomanString:
         self.romanized = romanized_form
         self.engine = engine
 
+    def __str__(self):
+        return f"RomanString({self.romanized} from {self.original} ({self.original_lang_tag}) via {self.engine})"
+
+    def __repr__(self):
+        return str(self)
+
 
 class Romanizer:
     """
@@ -45,8 +60,8 @@ class Romanizer:
     def __init__(self):
         # Initialize any necessary data structures or mappings here
         self._engines = {
-            "python-slugify": self._romanize_with_python_slugify,  # by Val Neekman: https://pypi.org/project/python-slugify/
-            # "romanize": None,  # by George Schizas: https://pypi.org/project/Romanize/
+            "python-slugify": self._romanize_with_python_slugify,  # "python-slugify" by Val Neekman: https://pypi.org/project/python-slugify/
+            "romanize-schizas": self._romanize_with_romanize_schizas,  # "romanize" by George Schizas: https://pypi.org/project/Romanize/
         }
         self._script_detector = ScriptDetector()
 
@@ -57,6 +72,7 @@ class Romanizer:
         """
         return list(self._engines.keys())
 
+    @lru_cache(maxsize=5000)
     def romanize(self, text: str, lang_tags: str = "und") -> list[RomanString]:
         """
         Romanize the input text from its original script to Latin script.
@@ -72,6 +88,7 @@ class Romanizer:
         """
         logger = logging.getLogger(__name__)
 
+        logger.debug(f"lang_tags as input: {lang_tags}")
         # validate and standardize the lang tag
         if not langcodes.tag_is_valid(lang_tags):
             raise ValueError(
@@ -83,6 +100,7 @@ class Romanizer:
                 f"Non-standard BCP 47 language tag '{lang_tags}' replaced with standardized tag '{standardized_lang_tag}'"
             )
             lang_tags = standardized_lang_tag
+        logger.debug(f"standardized lang_tags: {lang_tags}")
 
         # detect the script(s) used in the input text
         actual_scripts = self._script_detector.detect_scripts(text)
@@ -92,6 +110,7 @@ class Romanizer:
             )
             return []
         source_script = actual_scripts[0]
+        logger.debug(f"source_script: {source_script}")
 
         # try to guess the language tag on the basis of script if undefined
         if lang_tags == "und":
@@ -100,11 +119,14 @@ class Romanizer:
             )
             if len(candidates) == 1:
                 lang_tags = list(candidates)[0]
+                logger.debug(
+                    f"Guessed language tag '{lang_tags}' for script '{source_script}'"
+                )
 
         # if we think we know the real language tag, check that the script matches expectations
         if lang_tags != "und":
             expected_script = None
-            lang = langcodes.Language.get(standardized_lang_tag)
+            lang = langcodes.Language.get(lang_tags)
             if lang.language == "grc":
                 expected_script = "Grek"  # not included in langcodes default scripts
             else:
@@ -114,37 +136,57 @@ class Romanizer:
                     f"Detected script '{source_script}' in text '{text}' does not match expected script '{expected_script}' for langtag '{lang_tags}; skipping romanization'"
                 )
                 return []
+            source_language = lang.language
+        else:
+            source_language = "und"
+        logger.debug(f"source_language: {source_language}")
 
+        # perform romanization using all appropriate engines
         romanizations = list()
-        if lang_tags == "und":
+        if lang_tags.startswith("und"):
             # use only python-slugify for undefined language tags
-            romanizations = self._engines["python-slugify"](text)
+            romanizations = self._engines["python-slugify"](
+                text, lang_subtag=source_language, script_subtag=source_script
+            )
         else:
             # use all available engines for defined language tags
-            for engine_func in self._engines.values():
-                romanized_forms = engine_func(text, lang_tags)
-                romanizations.extend(romanized_forms)
+            for engine_name, engine_func in self._engines.items():
+                try:
+                    romanized_forms = engine_func(
+                        text, lang_subtag=source_language, script_subtag=source_script
+                    )
+                except RomanizationUnsupportedLanguageError as err:
+                    logger.error(
+                        f"Romanization engine '{engine_name}' failed for text '{text}' with langtag '{lang_tags}' (source_language: '{source_language}', source_script: '{source_script}'): {err}"
+                    )
+                else:
+                    romanizations.extend(romanized_forms)
         return romanizations
 
+    @lru_cache(maxsize=5000)
     def _romanize_with_python_slugify(
-        self, text: str, lang_tags: str = "und"
+        self, text: str, lang_subtag: str, script_subtag: str
     ) -> list[RomanString]:
         """
         Romanize the input text using the python-slugify engine.
 
         Args:
             text (str): The input text in its original script.
-            langtags (str): IANA language tags to guide romanization (default is "und" for undefined).
+            lang_subtag (str): IANA language subtag for reporting.
+            script_subtag (str): IANA script subtag for reporting.
         Returns:
             list[RomanString]: A list containing one or more romanized forms of the input "text" string.
         Notes:
             The python slugify engine is used to produce one and only one romanized form using its
             internal algorithm. No information about language or script is passed to the engine.
         """
+
         return [
             RomanString(
                 original_text=text,
-                original_lang_tag=lang_tags,
+                original_lang_tag=langcodes.standardize_tag(
+                    f"{lang_subtag}-{script_subtag}"
+                ),
                 romanized_form=python_slugify.slugify(
                     text, separator=" ", lowercase=False
                 ),
@@ -152,24 +194,43 @@ class Romanizer:
             )
         ]
 
-    def _romanize_with_romanize_engine(
-        self, text: str, lang_tags: str = "und"
+    @lru_cache(maxsize=5000)
+    def _romanize_with_romanize_schizas(
+        self, text: str, lang_subtag: str, script_subtag: str
     ) -> list[RomanString]:
         """
         Romanize the input text using the romanize engine.
 
         Args:
             text (str): The input text in its original script.
-            langtags (str): IANA language tags to guide romanization (default is "und" for undefined).
+            lang_subtag (str): IANA language subtag for reporting.
+            script_subtag (str): IANA script subtag for reporting.
         Returns:
             list[RomanString]: A list containing one or more romanized forms of the input "text" string.
         Notes:
             The romanize engine is used to produce one and only one romanized form using its
             internal algorithm. No information about language or script is passed to the engine.
         """
-        supported_lang_subtags = {"grc", "el", "und"}
+        langtags = langcodes.standardize_tag(f"{lang_subtag}-{script_subtag}")
+        supported_lang_subtags = {"el"}
         supported_script_subtags = {"Grek"}
-
+        if (
+            lang_subtag in supported_lang_subtags
+            and script_subtag in supported_script_subtags
+        ):
+            romanized_text = romanize_schizas(text)
+            return [
+                RomanString(
+                    original_text=text,
+                    original_lang_tag=langtags,
+                    romanized_form=romanized_text,
+                    engine="romanize-schizas",
+                )
+            ]
+        else:
+            raise RomanizationUnsupportedLanguageError(
+                f"Unsupported language/script for romanize engine: {langtags}"
+            )
         return []
 
 
