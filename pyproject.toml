@@ -30,6 +30,7 @@ dependencies = [
   "python-slugify",
   "romanize",
   "textnorm",
+  "webiquette @ https://github.com/isawnyu/webiquette/archive/refs/heads/main.zip"
 ]
 [project.urls]
 # "Homepage" = "https://github.com/pypa/sampleproject"

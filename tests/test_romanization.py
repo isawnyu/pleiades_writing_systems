@@ -46,19 +46,37 @@ class TestRomanizer:
         assert isinstance(engines, list)
         assert ["python-slugify"] == engines
 
-    def test_romanize_und(self):
+    def test_romanize(self):
         candidates = [
-            ("Αθήνα", "und"),
-            ("Αθήνα", "grc"),
-            ("Αθήνα", "el"),
+            ("Αθήνα", "und", "el", "Athena"),
+            ("Αθήνα", "grc", "grc", "Athena"),
+            ("Αθήνα", "el", "el", "Athena"),
+            ("Αθήνα", "grc-Grek", "grc-Grek", "Athena"),
+            ("Athens", "en", "en", "Athens"),
+            (
+                "Athens",
+                "und",
+                "und",
+                "Athens",
+            ),  # sic more than one languages uses Latin script by default
         ]
-        for text, langtag in candidates:
+        for text, langtag, result_langtag, result_rom in candidates:
             romanizations = self.romanizer.romanize(text, langtag)
             assert isinstance(romanizations, list)
             assert len(romanizations) == 1
             romanization = romanizations[0]
             assert isinstance(romanization, RomanString)
             assert romanization.original == text
-            assert romanization.original_lang_tag == langtag
-            assert romanization.romanized == "Athena"
+            assert romanization.original_lang_tag == result_langtag
+            assert romanization.romanized == result_rom
             assert romanization.engine == "python-slugify"
+
+    def test_romanize_fail(self):
+        candidates = [
+            ("Αθήνa", "el"),  # mixed scripts
+            ("Athens", "grc"),  # language mismatch
+        ]
+        for text, langtag in candidates:
+            romanizations = self.romanizer.romanize(text, langtag)
+            assert isinstance(romanizations, list)
+            assert len(romanizations) == 0
