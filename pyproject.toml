@@ -1,0 +1,37 @@
+#
+# This file is part of pleiades_writing_systems
+# by Tom Elliott for the Institute for the Study of the Ancient World
+# (c) Copyright 2025 by New York University
+# Licensed under the AGPL-3.0; see LICENSE.txt file.
+#
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pleiades_writing_systems"
+version = "0.0.1"
+authors = [
+  { name="Tom Elliott", email="tom.elliott@nyu.edu" },
+]
+description = "Deal with writing systems and associated strings for the Pleiades gazetteer"
+readme = "README.md"
+requires-python = ">=3.13.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "airtight",
+  "pytest",
+  "python-slugify",
+  "textnorm",
+]
+[project.urls]
+# "Homepage" = "https://github.com/pypa/sampleproject"
+# "Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
