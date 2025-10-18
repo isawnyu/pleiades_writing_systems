@@ -47,12 +47,18 @@ class TestRomanizer:
         assert ["python-slugify"] == engines
 
     def test_romanize_und(self):
-        romanizations = self.romanizer.romanize("Αθήνα")
-        assert isinstance(romanizations, list)
-        assert len(romanizations) == 1
-        romanization = romanizations[0]
-        assert isinstance(romanization, RomanString)
-        assert romanization.original == "Αθήνα"
-        assert romanization.original_lang_tag == "und"
-        assert romanization.romanized == "Athena"
-        assert romanization.engine == "python-slugify"
+        candidates = [
+            ("Αθήνα", "und"),
+            ("Αθήνα", "grc"),
+            ("Αθήνα", "el"),
+        ]
+        for text, langtag in candidates:
+            romanizations = self.romanizer.romanize(text, langtag)
+            assert isinstance(romanizations, list)
+            assert len(romanizations) == 1
+            romanization = romanizations[0]
+            assert isinstance(romanization, RomanString)
+            assert romanization.original == text
+            assert romanization.original_lang_tag == langtag
+            assert romanization.romanized == "Athena"
+            assert romanization.engine == "python-slugify"

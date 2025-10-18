@@ -8,7 +8,10 @@
 """
 romanization: create romanized (Latin script) versions of strings in other scripts
 """
+import langcodes
+import logging
 import slugify as python_slugify
+from romanize import romanize as romanize_engine
 
 
 class RomanString:
@@ -37,7 +40,8 @@ class Romanizer:
     def __init__(self):
         # Initialize any necessary data structures or mappings here
         self._engines = {
-            "python-slugify": self._romanize_with_python_slugify,  # Placeholder for actual romanization engine
+            "python-slugify": self._romanize_with_python_slugify,  # by Val Neekman: https://pypi.org/project/python-slugify/
+            # "romanize": None,  # by George Schizas: https://pypi.org/project/Romanize/
         }
 
     @property
@@ -60,6 +64,23 @@ class Romanizer:
             This method applies all available romanization engines to the input text and
             aggregates the results.
         """
+        logger = logging.getLogger(__name__)
+        if lang_tags != "und":
+            if not langcodes.tag_is_valid(lang_tags):
+                raise ValueError(
+                    f"Invalid BCP 47 language tag(s) '{lang_tags}' for text '{text}'"
+                )
+            standardized_lang_tag = langcodes.standardize_tag(lang_tags)
+            if standardized_lang_tag != lang_tags:
+                logger.warning(
+                    f"Non-standard BCP 47 language tag '{lang_tags}' replaced with standardized tag '{standardized_lang_tag}'"
+                )
+            lang = langcodes.Language.get(standardized_lang_tag)
+            expected_script = lang.script
+            logger.debug(
+                f"Expected script '{expected_script}' for lang tag '{standardized_lang_tag}'"
+            )
+
         romanizations = list()
         for engine_func in self._engines.values():
             romanized_forms = engine_func(text, lang_tags)
@@ -91,3 +112,23 @@ class Romanizer:
                 engine="python-slugify",
             )
         ]
+
+    def _romanize_with_romanize_engine(
+        self, text: str, lang_tags: str = "und"
+    ) -> list[RomanString]:
+        """
+        Romanize the input text using the romanize engine.
+
+        Args:
+            text (str): The input text in its original script.
+            langtags (str): IANA language tags to guide romanization (default is "und" for undefined).
+        Returns:
+            list[RomanString]: A list containing one or more romanized forms of the input "text" string.
+        Notes:
+            The romanize engine is used to produce one and only one romanized form using its
+            internal algorithm. No information about language or script is passed to the engine.
+        """
+        supported_lang_subtags = {"grc", "el", "und"}
+        supported_script_subtags = {"Grek"}
+
+        return []
