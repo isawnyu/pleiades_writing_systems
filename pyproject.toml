@@ -29,6 +29,7 @@ dependencies = [
   "pytest",
   "python-slugify",
   "romanize",
+  "romanize3",
   "textnorm",
   "webiquette @ https://github.com/isawnyu/webiquette/archive/refs/heads/main.zip"
 ]

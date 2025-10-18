@@ -44,7 +44,7 @@ class TestRomanizer:
     def test_engines_property(self):
         engines = self.romanizer.engines
         assert isinstance(engines, list)
-        assert ["python-slugify", "romanize-schizas"] == engines
+        assert ["python-slugify", "romanize-schizas", "romanize-manninen"] == engines
 
     def test_romanize(self):
         candidates = [
@@ -55,7 +55,13 @@ class TestRomanizer:
                 {"Athena", "Athina"},
                 {"python-slugify", "romanize-schizas"},
             ),
-            ("Αθήνα", "grc", "grc-Grek", {"Athena"}, {"python-slugify"}),
+            (
+                "Αθήνα",
+                "grc",
+                "grc-Grek",
+                {"Athena", "Athéna"},
+                {"python-slugify", "romanize-manninen"},
+            ),
             (
                 "Αθήνα",
                 "el",
@@ -63,7 +69,13 @@ class TestRomanizer:
                 {"Athena", "Athina"},
                 {"python-slugify", "romanize-schizas"},
             ),
-            ("Αθήνα", "grc", "grc-Grek", {"Athena"}, {"python-slugify"}),
+            (
+                "Αθήνα",
+                "grc",
+                "grc-Grek",
+                {"Athena", "Athéna"},
+                {"python-slugify", "romanize-manninen"},
+            ),
             ("Athens", "en", "en", {"Athens"}, {"python-slugify"}),
             (
                 "Athens",
@@ -73,10 +85,12 @@ class TestRomanizer:
                 {"python-slugify"},
             ),  # sic more than one languages uses Latin script by default
         ]
-        for text, langtag, result_langtag, result_rom, engines in candidates:
+        for i, blob in enumerate(candidates):
+            text, langtag, result_langtag, result_rom, engines = blob
             romanizations = self.romanizer.romanize(text, langtag)
             assert isinstance(romanizations, list)
-            for romanization in romanizations:
+            for j, romanization in enumerate(romanizations):
+                logger.debug(f"testing romanization result {i}:{j}")
                 assert isinstance(romanization, RomanString)
                 assert romanization.original == text
                 assert romanization.original_lang_tag == result_langtag

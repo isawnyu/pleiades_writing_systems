@@ -13,6 +13,7 @@ import langcodes
 import logging
 from pprint import pformat
 from romanize import romanize as romanize_schizas
+import romanize3 as romanize_manninen
 import slugify as python_slugify
 from datetime import timedelta
 import unicodedata
@@ -62,8 +63,11 @@ class Romanizer:
         self._engines = {
             "python-slugify": self._romanize_with_python_slugify,  # "python-slugify" by Val Neekman: https://pypi.org/project/python-slugify/
             "romanize-schizas": self._romanize_with_romanize_schizas,  # "romanize" by George Schizas: https://pypi.org/project/Romanize/
+            "romanize-manninen": self._romanize_with_romanize_manninen,  # "romanize3" by Marko Manninen: https://pypi.org/project/romanize3/
         }
         self._script_detector = ScriptDetector()
+        d = {"ή": "é"}
+        self._manninen_substitutions = str.maketrans(d)
 
     @property
     def engines(self):
@@ -230,6 +234,75 @@ class Romanizer:
         else:
             raise RomanizationUnsupportedLanguageError(
                 f"Unsupported language/script for romanize engine: {langtags}"
+            )
+        return []
+
+    @lru_cache(maxsize=5000)
+    def _romanize_with_romanize_manninen(
+        self, text: str, lang_subtag: str, script_subtag: str
+    ) -> list[RomanString]:
+        """
+        Romanize the input text using the romanize3 engine.
+
+        Args:
+            text (str): The input text in its original script.
+            lang_subtag (str): IANA language subtag for reporting.
+            script_subtag (str): IANA script subtag for reporting.
+        Returns:
+            list[RomanString]: A list containing one or more romanized forms of the input "text" string.
+        Notes:
+            The romanize3 engine is used to produce one and only one romanized form using its
+            internal algorithm. No information about language or script is passed to the engine.
+        """
+        langtags = langcodes.standardize_tag(f"{lang_subtag}-{script_subtag}")
+        supported_lang_subtags = {
+            "grc",  # Ancient Greek (to 1453)
+            "hy",  # Armenian (ISO 639-2 "arm")
+            "syc",  # Classical Syriac
+            "ar",  # Arabic (ISO 639-2 "ara")
+            "phn",  # Phoenician
+            "brh",  # Brahui
+            "cop",  # Coptic
+            "hbo",  # Ancient Hebrew (ISO 639-2 "heb")
+        }
+        supported_script_subtags = {
+            "Grek",
+            "Armn",
+            "Syrc",
+            "Arab",
+            "Phnx",
+            "Brah",
+            "Copt",
+            "Hebr",
+        }
+        if (
+            lang_subtag in supported_lang_subtags
+            and script_subtag in supported_script_subtags
+        ):
+            r = romanize_manninen.__dict__[lang_subtag]
+            romanized_text = r.convert(text)
+            # this package sometimes uses non-Roman characters in its output
+            if self._script_detector.detect_scripts(romanized_text) != ["Latn"]:
+                romanized_text = romanized_text.translate(self._manninen_substitutions)
+                if self._script_detector.detect_scripts(romanized_text) != ["Latn"]:
+                    raise RuntimeError(
+                        f"romanize3 engine produced non-Latin script output for language/script {langtags}: {romanized_text}"
+                    )
+            if "h" in romanized_text[1:] and romanized_text[0].lower() != "t":
+                romanized_text = romanized_text[0] + romanized_text[1:].replace(
+                    "h", "th"
+                )
+            return [
+                RomanString(
+                    original_text=text,
+                    original_lang_tag=langtags,
+                    romanized_form=romanized_text,
+                    engine="romanize-manninen",
+                )
+            ]
+        else:
+            raise RomanizationUnsupportedLanguageError(
+                f"Unsupported language/script for romanize-manninen (romanize3) engine: {langtags}"
             )
         return []
 
