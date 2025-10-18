@@ -171,6 +171,16 @@ class Romanizer:
                     )
                 else:
                     romanizations.extend(romanized_forms)
+        if source_script == "Latn":
+            # include the original text as a romanization if it's already in Latin script
+            romanizations.append(
+                RomanString(
+                    original_text=text,
+                    original_lang_tag=lang_tags,
+                    romanized_form=text,
+                    engine="identity",
+                )
+            )
         return romanizations
 
     @lru_cache(maxsize=5000)
