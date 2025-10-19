@@ -71,7 +71,7 @@ class Romanizer:
             "yuconv": self._romanize_with_yuconv,  # yuconv by Darko Milošević for Serbian Cyrillic: https://pypi.org/project/yuconv/
         }
         self._script_detector = ScriptDetector()
-        d = {"ή": "ḗ"}
+        d = {"ή": "ḗ", "ي": "i"}
         self._manninen_substitutions = str.maketrans(d)
         self._yuconverter = YuConverter()
 
@@ -375,7 +375,7 @@ class Romanizer:
                 romanized_text = romanized_text.translate(self._manninen_substitutions)
                 if self._script_detector.detect_scripts(romanized_text) != ["Latn"]:
                     raise RuntimeError(
-                        f"romanize3 engine produced non-Latin script output for language/script {langtags}: {romanized_text}"
+                        f"romanize3 (manninen) engine produced non-Latin script output for language/script {langtags}: {romanized_text}"
                     )
             if "h" in romanized_text[1:] and romanized_text[0].lower() != "t":
                 romanized_text = romanized_text[0] + romanized_text[1:].replace(
