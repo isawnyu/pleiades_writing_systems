@@ -45,6 +45,7 @@ class TestRomanizer:
         engines = self.romanizer.engines
         assert isinstance(engines, list)
         assert [
+            "arabic2latin",
             "iuliia",
             "python-slugify",
             "romanize-schizas",
@@ -166,6 +167,31 @@ class TestRomanizer:
             assert isinstance(romanizations, list)
             for j, romanization in enumerate(romanizations):
                 logger.debug(f"testing romanization result {i}:{j}")
+                assert isinstance(romanization, RomanString)
+                assert romanization.original == text
+                assert romanization.original_lang_tag == langtag
+                assert romanization.romanized in result_rom
+                assert romanization.engine in engines
+
+    def test_romanize_arabic(self):
+        candidates = [
+            (
+                "السَّلَامُ عَلَيْكَ",
+                "ar",
+                {"alsaalaamo aalayka", "lsaWlamu alayka"},
+                {"arabic2latin", "python-slugify"},
+            ),
+        ]
+        for i, blob in enumerate(candidates):
+            text, langtag, result_rom, engines = blob
+            omit = ("romanize-manninen",)
+            romanizations = self.romanizer.romanize(text, langtag, omit_engines=omit)
+            assert isinstance(romanizations, list)
+            for j, romanization in enumerate(romanizations):
+                logger.debug(f"testing romanization result {i}:{j}")
+                logger.debug(
+                    f"romanization details: {pformat(inspect.getmembers(romanization))}"
+                )
                 assert isinstance(romanization, RomanString)
                 assert romanization.original == text
                 assert romanization.original_lang_tag == langtag

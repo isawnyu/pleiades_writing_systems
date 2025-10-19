@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
   "airtight",
+  "arabic2latin",
   "iuliia",
   "langcodes[data]",
   "pytest",

@@ -8,6 +8,7 @@
 """
 romanization: create romanized (Latin script) versions of strings in other scripts
 """
+from arabic2latin import arabic_to_latin
 from functools import lru_cache
 import iuliia
 import langcodes
@@ -64,6 +65,7 @@ class Romanizer:
     def __init__(self, use_engines: list | str = "all"):
         # Initialize any necessary data structures or mappings here
         self._engines = {
+            "arabic2latin": self._romanize_with_arabic2latin,  # "arabic2latin" by rexa222: https://pypi.org/project/arabic2latin/
             "iuliia": self._romanize_with_iuliia,  # "iuliia" by Anton Zhiyanov: https://pypi.org/project/iuliia/
             "python-slugify": self._romanize_with_python_slugify,  # "python-slugify" by Val Neekman: https://pypi.org/project/python-slugify/
             "romanize-schizas": self._romanize_with_romanize_schizas,  # "romanize" by George Schizas: https://pypi.org/project/Romanize/
@@ -104,7 +106,9 @@ class Romanizer:
         return list(self._engines.keys())
 
     @lru_cache(maxsize=5000)
-    def romanize(self, text: str, lang_tags: str = "und") -> list[RomanString]:
+    def romanize(
+        self, text: str, lang_tags: str = "und", omit_engines: tuple = ()
+    ) -> list[RomanString]:
         """
         Romanize the input text from its original script to Latin script.
 
@@ -181,6 +185,9 @@ class Romanizer:
             )
         else:
             for engine_name in self.use_engines:
+                if engine_name in omit_engines:
+                    logger.debug(f"skipping engine '{engine_name}' per omit_engines")
+                    continue
                 engine_func = self._engines[engine_name]
                 try:
                     romanized_forms = engine_func(
@@ -204,6 +211,46 @@ class Romanizer:
                     )
                 )
         return romanizations
+
+    @lru_cache(maxsize=5000)
+    def _romanize_with_arabic2latin(
+        self, text: str, lang_subtag: str, script_subtag: str
+    ) -> list[RomanString]:
+        """
+        Romanize the input text using the arabic2latin engine.
+
+        Args:
+            text (str): The input text in its original script.
+            lang_subtag (str): IANA language subtag for reporting.
+            script_subtag (str): IANA script subtag for reporting.
+        Returns:
+            list[RomanString]: A list containing one or more romanized forms of the input "text" string.
+        Notes:
+            The arabic2latin engine is used to produce one and only one romanized form using its
+            internal algorithm. No information about language or script is passed to the engine.
+        """
+        langtags = langcodes.standardize_tag(f"{lang_subtag}-{script_subtag}")
+        supported_lang_subtags = {
+            "ar",  # Arabic
+            "fa",  # Persian
+        }
+        supported_script_subtags = {"Arab"}
+        if not (
+            lang_subtag in supported_lang_subtags
+            and script_subtag in supported_script_subtags
+        ):
+            raise RomanizationUnsupportedLanguageError(
+                f"Unsupported language/script for arabic2latin engine: {langtags}"
+            )
+
+        return [
+            RomanString(
+                original_text=text,
+                original_lang_tag=langtags,
+                romanized_form=arabic_to_latin(text),
+                engine="arabic2latin",
+            )
+        ]
 
     @lru_cache(maxsize=5000)
     def _romanize_with_iuliia(
