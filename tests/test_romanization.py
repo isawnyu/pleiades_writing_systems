@@ -82,13 +82,13 @@ class TestRomanizer:
                 {"Athena", "Athḗna"},
                 {"python-slugify", "romanize-manninen"},
             ),
-            ("Athens", "en", "en", {"Athens"}, {"python-slugify"}),
+            ("Athens", "en", "en", {"Athens"}, {"python-slugify", "identity"}),
             (
                 "Athens",
                 "und",
                 "und-Latn",
                 {"Athens"},
-                {"python-slugify"},
+                {"python-slugify", "identity"},
             ),  # sic more than one languages uses Latin script by default
         ]
         for i, blob in enumerate(candidates):
@@ -97,6 +97,10 @@ class TestRomanizer:
             assert isinstance(romanizations, list)
             for j, romanization in enumerate(romanizations):
                 logger.debug(f"testing romanization result {i}:{j}")
+                if i == 5:
+                    logger.debug(
+                        f"romanization details: {pformat(inspect.getmembers(romanization))}"
+                    )
                 assert isinstance(romanization, RomanString)
                 assert romanization.original == text
                 assert romanization.original_lang_tag == result_langtag

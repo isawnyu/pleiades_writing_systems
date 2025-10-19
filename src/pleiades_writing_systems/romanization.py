@@ -61,7 +61,7 @@ class Romanizer:
     A class to handle romanization of various writing systems.
     """
 
-    def __init__(self):
+    def __init__(self, use_engines: list | str = "all"):
         # Initialize any necessary data structures or mappings here
         self._engines = {
             "iuliia": self._romanize_with_iuliia,  # "iuliia" by Anton Zhiyanov: https://pypi.org/project/iuliia/
@@ -70,6 +70,27 @@ class Romanizer:
             "romanize-manninen": self._romanize_with_romanize_manninen,  # "romanize3" by Marko Manninen: https://pypi.org/project/romanize3/
             "yuconv": self._romanize_with_yuconv,  # yuconv by Darko Milošević for Serbian Cyrillic: https://pypi.org/project/yuconv/
         }
+        self.use_engines = []
+        if isinstance(use_engines, str):
+            if use_engines == "all":
+                self.use_engines = list(self._engines.keys())
+            else:
+                try:
+                    self._engines[use_engines]
+                except KeyError:
+                    raise ValueError(
+                        f"Unknown romanization engine requested '{use_engines}'"
+                    )
+        elif isinstance(use_engines, list):
+            for engine in use_engines:
+                try:
+                    self._engines[engine]
+                except KeyError:
+                    raise ValueError(
+                        f"Unknown romanization engine requested '{engine}'"
+                    )
+                else:
+                    self.use_engines.append(engine)
         self._script_detector = ScriptDetector()
         d = {"ή": "ḗ", "ي": "i"}
         self._manninen_substitutions = str.maketrans(d)
@@ -159,8 +180,8 @@ class Romanizer:
                 text, lang_subtag=source_language, script_subtag=source_script
             )
         else:
-            # use all available engines for defined language tags
-            for engine_name, engine_func in self._engines.items():
+            for engine_name in self.use_engines:
+                engine_func = self._engines[engine_name]
                 try:
                     romanized_forms = engine_func(
                         text, lang_subtag=source_language, script_subtag=source_script
@@ -173,14 +194,15 @@ class Romanizer:
                     romanizations.extend(romanized_forms)
         if source_script == "Latn":
             # include the original text as a romanization if it's already in Latin script
-            romanizations.append(
-                RomanString(
-                    original_text=text,
-                    original_lang_tag=lang_tags,
-                    romanized_form=text,
-                    engine="identity",
+            if text not in [r.romanized for r in romanizations]:
+                romanizations.append(
+                    RomanString(
+                        original_text=text,
+                        original_lang_tag=lang_tags,
+                        romanized_form=text,
+                        engine="identity",
+                    )
                 )
-            )
         return romanizations
 
     @lru_cache(maxsize=5000)
