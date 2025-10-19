@@ -361,7 +361,14 @@ class Romanizer:
             lang_subtag in supported_lang_subtags
             and script_subtag in supported_script_subtags
         ):
-            r = romanize_manninen.__dict__[lang_subtag]
+            if lang_subtag == "ar":
+                r = romanize_manninen.__dict__["ara"]
+            elif lang_subtag == "hy":
+                r = romanize_manninen.__dict__["arm"]
+            elif lang_subtag == "heb":
+                r = romanize_manninen.__dict__["hbo"]
+            else:
+                r = romanize_manninen.__dict__[lang_subtag]
             romanized_text = r.convert(text)
             # this package sometimes uses non-Roman characters in its output
             if self._script_detector.detect_scripts(romanized_text) != ["Latn"]:
